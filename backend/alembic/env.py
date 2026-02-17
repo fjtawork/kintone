@@ -12,6 +12,7 @@ sys.path.append(os.getcwd()) # Add backend root to path
 
 from app.core.database import Base
 from app.models.models import App, Field, Record
+from app.models.user import User
 from app.core.config import settings
 
 # this is the Alembic Config object, which provides

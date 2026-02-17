@@ -26,10 +26,14 @@ import {
     FormMessage,
 } from '@/components/ui/form';
 import { Plus } from 'lucide-react';
+import { IconPicker } from './IconPicker';
+import { ColorPicker } from './ColorPicker';
 
 const formSchema = z.object({
-    name: z.string().min(1, 'Name is required').max(100),
+    name: z.string().min(1, '名前は必須です').max(100),
     description: z.string().optional(),
+    icon: z.string().optional(),
+    theme: z.string().optional(),
 });
 
 export const CreateAppDialog = () => {
@@ -64,14 +68,14 @@ export const CreateAppDialog = () => {
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 <Button>
-                    <Plus className="mr-2 h-4 w-4" /> Create App
+                    <Plus className="mr-2 h-4 w-4" /> アプリ作成
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>Create New App</DialogTitle>
+                    <DialogTitle>新しいアプリを作成</DialogTitle>
                     <DialogDescription>
-                        Give your app a name and description to get started.
+                        アプリ名と説明を入力してください。
                     </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
@@ -81,9 +85,9 @@ export const CreateAppDialog = () => {
                             name="name"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Name</FormLabel>
+                                    <FormLabel>名前</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="e.g. Employee Database" {...field} />
+                                        <Input placeholder="例: 社員データベース" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -94,17 +98,45 @@ export const CreateAppDialog = () => {
                             name="description"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Description</FormLabel>
+                                    <FormLabel>説明</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="Optional description" {...field} />
+                                        <Input placeholder="任意" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}
                         />
+                        <div className="flex gap-4">
+                            <FormField
+                                control={form.control}
+                                name="icon"
+                                render={({ field }) => (
+                                    <FormItem className="flex-1">
+                                        <FormLabel>アイコン</FormLabel>
+                                        <FormControl>
+                                            <IconPicker value={field.value} onChange={field.onChange} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="theme"
+                                render={({ field }) => (
+                                    <FormItem className="flex-1">
+                                        <FormLabel>テーマカラー</FormLabel>
+                                        <FormControl>
+                                            <ColorPicker value={field.value} onChange={field.onChange} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
                         <DialogFooter>
                             <Button type="submit" disabled={mutation.isPending}>
-                                {mutation.isPending ? 'Creating...' : 'Create'}
+                                {mutation.isPending ? '作成中...' : '作成'}
                             </Button>
                         </DialogFooter>
                     </form>

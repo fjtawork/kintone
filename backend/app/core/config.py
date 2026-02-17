@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = "kintone_password"
     POSTGRES_DB: str = "kintone_db"
     POSTGRES_PORT: int = 5432
+    TEST_DATABASE_URL: Optional[str] = None
     
     @computed_field
     def SQLALCHEMY_DATABASE_URI(self) -> str:

@@ -52,6 +52,20 @@ cd frontend
 npm run dev -- --hostname 0.0.0.0 --port 3000
 ```
 
+## 4. 開発データ投入（Seeder）
+
+```bash
+cd backend
+./.venv/bin/python seed_demo_data.py
+```
+
+- 既存データがあっても再実行可能（同じメール/コード/名称は更新）
+- 生成される主なデータ
+  - ユーザー: 管理者、部長、一般、部署違い、役職のみ
+  - 組織: 部署・役職
+  - サンプルアプリ: 1件
+  - サンプルフィールド: `title` 1件
+
 ## 5. 現在の主要データモデル（実装ベース）
 
 - `users`
@@ -77,6 +91,31 @@ npm run dev -- --hostname 0.0.0.0 --port 3000
 - Users/Organization（部署・役職）機能はモデル/APIが存在する。
 - `users` 追加系の Alembic migration は存在する。
 - `departments` / `job_titles` はモデルとAPIがあるため、DB適用時は migration 状況を要確認。
+- ワークフローはアプリの `process_management` 設定ベースで遷移する方式。
+  - `POST /api/v1/records/{record_id}/workflow/actions/{action_name}`
+  - `GET /api/v1/records/pending-approvals`
+  - `next_assignee_id` を渡すことで、候補から次担当者を1名選択できる。
+
+設定例:
+
+```json
+{
+  "enabled": true,
+  "statuses": [
+    {"name": "Draft", "assignee": {"type": "creator"}},
+    {"name": "Manager Approval", "assignee": {"type": "field", "field_code": "manager_user_id", "selection": "single"}},
+    {"name": "Director Approval", "assignee": {"type": "field", "field_code": "director_user_id"}},
+    {"name": "Approved", "assignee": {}}
+  ],
+  "actions": [
+    {"name": "Submit", "from": "Draft", "to": "Manager Approval"},
+    {"name": "Approve", "from": "Manager Approval", "to": "Director Approval"},
+    {"name": "Final Approve", "from": "Director Approval", "to": "Approved"},
+    {"name": "Reject", "from": "Manager Approval", "to": "Draft"},
+    {"name": "Reject", "from": "Director Approval", "to": "Draft"}
+  ]
+}
+```
 
 ## 7. インフラ前提
 
