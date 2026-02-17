@@ -11,18 +11,25 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 
 interface RecordSearchProps {
     fields: Field[];
-    onSearch: (filters: Record<string, any>) => void;
+    onSearch: (filters: Record<string, unknown>) => void;
 }
 
+type FilterCondition = {
+    op: 'eq' | 'contains';
+    value: unknown;
+};
+
 export const RecordSearch = ({ fields, onSearch }: RecordSearchProps) => {
-    const [filters, setFilters] = useState<Record<string, any>>({});
+    const [filters, setFilters] = useState<Record<string, FilterCondition>>({});
     const [isOpen, setIsOpen] = useState(false);
 
-    const handleFilterChange = (code: string, value: any) => {
+    const handleFilterChange = (code: string, condition: FilterCondition | null) => {
         setFilters(prev => {
-            const next = { ...prev, [code]: value };
-            if (value === '' || value === null || value === undefined) {
+            const next = { ...prev };
+            if (!condition || condition.value === '' || condition.value === null || condition.value === undefined) {
                 delete next[code];
+            } else {
+                next[code] = condition;
             }
             return next;
         });
@@ -40,7 +47,8 @@ export const RecordSearch = ({ fields, onSearch }: RecordSearchProps) => {
     };
 
     const renderFilterInput = (field: Field) => {
-        const value = filters[field.code] || '';
+        const condition = filters[field.code];
+        const value = condition?.value ?? '';
 
         switch (field.type) {
             case 'SINGLE_LINE_TEXT':
@@ -48,8 +56,8 @@ export const RecordSearch = ({ fields, onSearch }: RecordSearchProps) => {
                 return (
                     <Input
                         placeholder="検索..."
-                        value={value}
-                        onChange={(e) => handleFilterChange(field.code, e.target.value)}
+                        value={String(value)}
+                        onChange={(e) => handleFilterChange(field.code, { op: 'contains', value: e.target.value })}
                     />
                 );
             case 'NUMBER':
@@ -57,14 +65,17 @@ export const RecordSearch = ({ fields, onSearch }: RecordSearchProps) => {
                     <Input
                         type="number"
                         placeholder="数値を入力"
-                        value={value}
-                        onChange={(e) => handleFilterChange(field.code, e.target.value)}
+                        value={String(value)}
+                        onChange={(e) => handleFilterChange(field.code, { op: 'eq', value: e.target.value })}
                     />
                 );
             case 'DROP_DOWN':
             case 'RADIO_BUTTON':
                 return (
-                    <Select value={value} onValueChange={(val) => handleFilterChange(field.code, val)}>
+                    <Select
+                        value={String(value)}
+                        onValueChange={(val) => handleFilterChange(field.code, val === 'all_clear_option' ? null : { op: 'eq', value: val })}
+                    >
                         <SelectTrigger>
                             <SelectValue placeholder="すべて" />
                         </SelectTrigger>
@@ -84,14 +95,20 @@ export const RecordSearch = ({ fields, onSearch }: RecordSearchProps) => {
                 return (
                     <Input
                         type="date"
-                        value={value}
-                        onChange={(e) => handleFilterChange(field.code, e.target.value)}
+                        value={String(value)}
+                        onChange={(e) => handleFilterChange(field.code, { op: 'eq', value: e.target.value })}
                     />
                 );
             // Ignore File, Checkbox for simple search unless requested. Checkbox could be select.
             case 'CHECKBOX':
                 return (
-                    <Select value={value} onValueChange={(val) => handleFilterChange(field.code, val === 'true')}>
+                    <Select
+                        value={String(value)}
+                        onValueChange={(val) => handleFilterChange(
+                            field.code,
+                            val === 'all_clear_option' ? null : { op: 'eq', value: val === 'true' }
+                        )}
+                    >
                         <SelectTrigger>
                             <SelectValue placeholder="すべて" />
                         </SelectTrigger>

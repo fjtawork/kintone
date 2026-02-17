@@ -1,6 +1,7 @@
 'use client';
 
-import { useRecords, AppRecord } from '../api/useRecords';
+import { AppRecord } from '../api/useRecords';
+import { useRecordsPaged } from '../api/useRecordsPaged';
 import { useUpdateRecordStatus } from '../api/useUpdateRecordStatus';
 import { Field } from '../../app-builder/types';
 import {
@@ -26,9 +27,19 @@ interface RecordListProps {
 }
 
 export const RecordList = ({ appId, fields, processManagement, filters }: RecordListProps) => {
-    const { data: records, isLoading, error } = useRecords(appId, filters);
+    const fieldCodes = fields.map((field) => field.code).filter(Boolean);
+    const {
+        data,
+        isLoading,
+        error,
+        hasNextPage,
+        fetchNextPage,
+        isFetchingNextPage
+    } = useRecordsPaged(appId, filters, fieldCodes);
     const { mutate: updateStatus } = useUpdateRecordStatus(appId);
     const router = useRouter();
+    const records = data?.pages.flatMap((page) => page.items) || [];
+    const recordCountLabel = hasNextPage ? `${records.length}件以上` : `${records.length}件`;
 
     if (isLoading) {
         return <div className="space-y-2">
@@ -143,7 +154,11 @@ export const RecordList = ({ appId, fields, processManagement, filters }: Record
     };
 
     return (
-        <div className="border rounded-md">
+        <div className="space-y-3">
+            <div className="flex justify-end text-sm text-muted-foreground">
+                表示件数: {recordCountLabel}
+            </div>
+            <div className="border rounded-md">
             <Table>
                 <TableHeader>
                     <TableRow>
@@ -178,6 +193,14 @@ export const RecordList = ({ appId, fields, processManagement, filters }: Record
                     ))}
                 </TableBody>
             </Table>
+            </div>
+            {hasNextPage && (
+                <div className="flex justify-center">
+                    <Button variant="outline" onClick={() => fetchNextPage()} disabled={isFetchingNextPage}>
+                        {isFetchingNextPage ? '読み込み中...' : 'もっと見る'}
+                    </Button>
+                </div>
+            )}
         </div>
     );
 };

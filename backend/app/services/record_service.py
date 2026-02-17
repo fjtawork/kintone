@@ -11,6 +11,25 @@ from app.services.notification_service import NotificationService
 
 class RecordService:
     @staticmethod
+    def _coerce_filter_value(value: Any) -> Any:
+        if isinstance(value, str):
+            text = value.strip()
+            if text == "":
+                return text
+            lower = text.lower()
+            if lower == "true":
+                return True
+            if lower == "false":
+                return False
+            try:
+                if "." in text:
+                    return float(text)
+                return int(text)
+            except ValueError:
+                return value
+        return value
+
+    @staticmethod
     async def get_next_record_number(db: AsyncSession, app_id: UUID) -> int:
         # Simple auto-increment logic (Replace with sequence or robust locking in prod)
         result = await db.execute(select(func.max(Record.record_number)).where(Record.app_id == app_id))
@@ -259,121 +278,183 @@ class RecordService:
         return user_ids
 
     @staticmethod
+    def _apply_record_acl_filter(
+        query: Any,
+        user: Optional["User"],
+        app_record_acl: Optional[List[dict]],
+    ) -> Any:
+        if not (user and app_record_acl):
+            return query
+
+        from sqlalchemy import and_, literal, not_, or_
+
+        acl_expressions = []
+        accumulated_not = []
+
+        for rule in app_record_acl:
+            cond = rule.get("condition")
+            if not cond:
+                continue
+
+            field_code = cond.get("field")
+            op = cond.get("operator")
+            val = cond.get("value")
+            if op != "=":
+                continue
+
+            sql_cond = Record.data[field_code].astext == str(val)
+            perms = rule.get("permissions", {}).get("view", [])
+
+            is_in_static = False
+            includes_creator = False
+            for entity in perms:
+                etype = entity.get("entity_type") if isinstance(entity, dict) else None
+                eid = entity.get("entity_id") if isinstance(entity, dict) else None
+
+                if etype == "everyone":
+                    is_in_static = True
+                    break
+                if etype == "creator":
+                    includes_creator = True
+                if etype == "user" and str(eid) == str(user.id):
+                    is_in_static = True
+                if etype == "department" and str(eid) == str(user.department_id):
+                    is_in_static = True
+                if etype == "job_title" and str(eid) == str(user.job_title_id):
+                    is_in_static = True
+
+            if is_in_static:
+                perm_expr = literal(True)
+            elif includes_creator:
+                perm_expr = (Record.created_by == user.id)
+            else:
+                perm_expr = literal(False)
+
+            current_rule_logic = and_(*accumulated_not, sql_cond, perm_expr)
+            acl_expressions.append(current_rule_logic)
+            accumulated_not.append(not_(sql_cond))
+
+        default_expr = and_(*accumulated_not)
+        acl_expressions.append(default_expr)
+
+        if acl_expressions:
+            query = query.where(or_(*acl_expressions))
+        return query
+
+    @staticmethod
+    def _apply_search_filters(query: Any, filters: Optional[dict]) -> Any:
+        if not filters:
+            return query
+
+        for key, raw_filter in filters.items():
+            op = "eq"
+            value = raw_filter
+
+            if isinstance(raw_filter, dict):
+                if "$contains" in raw_filter:
+                    contains_value = raw_filter.get("$contains")
+                    if contains_value:
+                        query = query.where(Record.data.astext.ilike(f"%{contains_value}%"))
+                    continue
+                op = str(raw_filter.get("op", "eq"))
+                value = raw_filter.get("value")
+            elif isinstance(raw_filter, str):
+                op = "contains"
+
+            if value is None or value == "":
+                continue
+
+            if op == "contains":
+                query = query.where(Record.data[key].astext.ilike(f"%{value}%"))
+                continue
+
+            coerced_value = RecordService._coerce_filter_value(value)
+            query = query.where(Record.data.contains({key: coerced_value}))
+
+        return query
+
+    @staticmethod
+    def _compact_records_for_list(records: List[Record], field_codes: Optional[List[str]]) -> List[Any]:
+        if not field_codes:
+            return records
+
+        requested_codes = [code for code in field_codes if code]
+        if not requested_codes:
+            return records
+
+        compact_records: List[Dict[str, Any]] = []
+        for record in records:
+            source_data = record.data or {}
+            compact_data = {code: source_data.get(code) for code in requested_codes if code in source_data}
+            compact_records.append(
+                {
+                    "id": record.id,
+                    "app_id": record.app_id,
+                    "record_number": record.record_number,
+                    "status": record.status,
+                    "data": compact_data,
+                    "created_at": record.created_at,
+                    "updated_at": record.updated_at,
+                }
+            )
+        return compact_records
+
+    @staticmethod
     async def get_records(
         db: AsyncSession, 
         app_id: UUID, 
         skip: int = 0, 
         limit: int = 100, 
         filters: Optional[dict] = None,
+        field_codes: Optional[List[str]] = None,
         user: Optional['User'] = None, # Make optional for backward compat, but logic requires it for ACL
         app_record_acl: Optional[List[dict]] = None
-    ) -> List[Record]:
+    ) -> List[Any]:
         query = select(Record).where(Record.app_id == app_id)
-        
-        # --- ACL Filtering ---
-        if user and app_record_acl:
-            from sqlalchemy import and_, or_, not_, literal, cast, String
-            
-            acl_expressions = []
-            accumulated_not = []
-            
-            for rule in app_record_acl:
-                # 1. Condition
-                cond = rule.get("condition")
-                if not cond: continue
-                
-                field_code = cond.get("field")
-                op = cond.get("operator")
-                val = cond.get("value")
-                
-                # SQL Condition
-                # Simple implementation: Supports "=" only for now
-                if op == "=":
-                    # JSONB lookup
-                    sql_cond = Record.data[field_code].astext == str(val)
-                else:
-                    # Default to always valid if operator unknown (or ignore rule?)
-                    # Let's ignore rule to be safe (fallback to default)
-                    continue
 
-                # 2. Permission Check (View)
-                perms = rule.get("permissions", {}).get("view", [])
-                
-                # Check if user is in static list
-                is_in_static = False
-                includes_creator = False
-                
-                for entity in perms:
-                    # Format: "user:UUID", "dept:UUID", "everyone", "creator"
-                    # Or just IDs? Let's assume schema matches what we store.
-                    # Plan said: {entity_type, entity_id} list? 
-                    # Implementation plan: "permissions: {users/groups...}"
-                    # Let's assume standard kintone list format: "user:ID", "group:ID", "creator" or just simple parsing
-                    # Based on AppService logic implemented earlier, I used a structured dict.
-                    # Let's assume `perms` is a LIST of entity objects like in App ACL?
-                    # Or simple strings? Simplest is list of entity strings.
-                    # Let's assume struct: [{"type": "user", "id": "..."}]
-                    
-                    etype = entity.get("entity_type") if isinstance(entity, dict) else None
-                    eid = entity.get("entity_id") if isinstance(entity, dict) else None
-                    
-                    if etype == "everyone":
-                        is_in_static = True
-                        break
-                    if etype == "creator":
-                        includes_creator = True
-                    if etype == "user" and str(eid) == str(user.id):
-                        is_in_static = True
-                    if etype == "department" and str(eid) == str(user.department_id):
-                        is_in_static = True
-                    if etype == "job_title" and str(eid) == str(user.job_title_id):
-                        is_in_static = True
-
-                # Validation Logic
-                # If static (True) -> User matches
-                # If dynamic (Creator) -> Record.created_by == user.id
-                
-                perm_expr = None
-                if is_in_static:
-                    perm_expr = literal(True)
-                elif includes_creator:
-                    perm_expr = (Record.created_by == user.id)
-                else:
-                    perm_expr = literal(False)
-                
-                # 3. Combine
-                # (Condition AND Perm)
-                current_rule_logic = and_(*accumulated_not, sql_cond, perm_expr)
-                acl_expressions.append(current_rule_logic)
-                
-                accumulated_not.append(not_(sql_cond))
-            
-            # Default Fallback (if no rules matched)
-            # If NO rules matched (accumulated_not is true), what happens?
-            # Default: Everyone View? 
-            # Safe default: Allow.
-            default_expr = and_(*accumulated_not)
-            acl_expressions.append(default_expr)
-            
-            # Apply Filter
-            if acl_expressions:
-                query = query.where(or_(*acl_expressions))
-
-        # --- End ACL Filtering ---
-
-        if filters:
-            for key, value in filters.items():
-                if value is None or value == "":
-                    continue
-                if isinstance(value, str):
-                    query = query.where(Record.data[key].astext.ilike(f"%{value}%"))
-                else:
-                    query = query.where(Record.data[key].astext == str(value))
+        query = RecordService._apply_record_acl_filter(query, user, app_record_acl)
+        query = RecordService._apply_search_filters(query, filters)
         
         query = query.order_by(Record.record_number.desc()).offset(skip).limit(limit)
         
         result = await db.execute(query)
-        return result.scalars().all()
+        records = result.scalars().all()
+        return RecordService._compact_records_for_list(records, field_codes)
+
+    @staticmethod
+    async def get_records_paged(
+        db: AsyncSession,
+        app_id: UUID,
+        limit: int = 50,
+        cursor_record_number: Optional[int] = None,
+        filters: Optional[dict] = None,
+        field_codes: Optional[List[str]] = None,
+        user: Optional["User"] = None,
+        app_record_acl: Optional[List[dict]] = None,
+    ) -> Dict[str, Any]:
+        page_size = max(1, min(limit, 200))
+        query = select(Record).where(Record.app_id == app_id)
+
+        query = RecordService._apply_record_acl_filter(query, user, app_record_acl)
+        query = RecordService._apply_search_filters(query, filters)
+        if cursor_record_number is not None:
+            query = query.where(Record.record_number < cursor_record_number)
+
+        query = query.order_by(Record.record_number.desc()).limit(page_size + 1)
+        result = await db.execute(query)
+        records = result.scalars().all()
+
+        has_next = len(records) > page_size
+        page_records = records[:page_size]
+        next_cursor: Optional[int] = None
+        if has_next and page_records:
+            next_cursor = page_records[-1].record_number
+
+        return {
+            "items": RecordService._compact_records_for_list(page_records, field_codes),
+            "next_cursor": next_cursor,
+            "has_next": has_next,
+        }
     
     @staticmethod
     def check_record_permission(record: Record, user: 'User', app_record_acl: List[dict] = None) -> bool:

@@ -10,14 +10,19 @@ export interface AppRecord {
     updated_at: string;
 }
 
-export const useRecords = (appId: string, filters?: Record<string, unknown>) => {
+export const useRecords = (appId: string, filters?: Record<string, unknown>, fieldCodes?: string[]) => {
+    const normalizedFieldCodes = (fieldCodes || []).filter(Boolean).sort();
+
     return useQuery({
-        queryKey: ['records', appId, filters], // Include filters in query key to trigger refetch
+        queryKey: ['records', appId, filters, normalizedFieldCodes], // Include filters and field selection in query key
         queryFn: async (): Promise<AppRecord[]> => {
             if (!appId) return [];
             const params: Record<string, string> = {};
             if (filters && Object.keys(filters).length > 0) {
                 params.filters = JSON.stringify(filters);
+            }
+            if (normalizedFieldCodes.length > 0) {
+                params.field_codes = normalizedFieldCodes.join(',');
             }
             const { data } = await api.get(`/records`, {
                 params: {

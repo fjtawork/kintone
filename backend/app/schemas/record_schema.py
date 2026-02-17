@@ -38,3 +38,22 @@ class RecordResponse(RecordBase):
 
     class Config:
         from_attributes = True
+
+
+class RecordListResponse(BaseModel):
+    id: UUID
+    app_id: UUID
+    record_number: int
+    status: Optional[str] = None
+    data: Dict[str, Any] = PydanticField(default={}, description="Subset data for list view")
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class RecordListPageResponse(BaseModel):
+    items: List[RecordListResponse]
+    next_cursor: Optional[int] = None
+    has_next: bool

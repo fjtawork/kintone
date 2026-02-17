@@ -36,6 +36,7 @@ export const CreateRecordDialog = ({ appId, fields, formColumns = 1 }: CreateRec
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['records', appId] });
+            queryClient.invalidateQueries({ queryKey: ['records-infinite', appId] });
             setOpen(false);
         },
     });

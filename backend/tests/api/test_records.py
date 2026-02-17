@@ -87,3 +87,43 @@ async def test_create_and_list_records(client: AsyncClient, auth_headers, app_wi
     response = await client.get(f"/api/v1/records/{record_id}", headers=auth_headers) # We need to ensure GET /{id} exists in router
     assert response.status_code == 200
     assert response.json()["status"] == action_name
+
+
+@pytest.mark.asyncio
+async def test_records_paged_cursor(client: AsyncClient, auth_headers, app_with_fields):
+    app_id = app_with_fields
+
+    # Create multiple records
+    for i in range(1, 6):
+        response = await client.post(
+            "/api/v1/records",
+            headers=auth_headers,
+            json={
+                "app_id": app_id,
+                "data": {"title": f"Task {i}"},
+            },
+        )
+        assert response.status_code == 201
+
+    first_page = await client.get(
+        f"/api/v1/records/paged?app_id={app_id}&limit=2&field_codes=title",
+        headers=auth_headers,
+    )
+    assert first_page.status_code == 200
+    page1 = first_page.json()
+    assert page1["has_next"] is True
+    assert page1["next_cursor"] is not None
+    assert len(page1["items"]) == 2
+
+    # Ensure list payload is compact (only requested field in data)
+    assert list(page1["items"][0]["data"].keys()) == ["title"]
+
+    cursor = page1["next_cursor"]
+    second_page = await client.get(
+        f"/api/v1/records/paged?app_id={app_id}&limit=2&cursor={cursor}&field_codes=title",
+        headers=auth_headers,
+    )
+    assert second_page.status_code == 200
+    page2 = second_page.json()
+    assert len(page2["items"]) == 2
+    assert page2["items"][0]["record_number"] < page1["items"][-1]["record_number"]

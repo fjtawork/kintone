@@ -21,6 +21,7 @@ export const useUpdateRecordStatus = (appId: string) => {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['records', appId] });
+            queryClient.invalidateQueries({ queryKey: ['records-infinite', appId] });
             queryClient.invalidateQueries({ queryKey: ['record'] });
         }
     });

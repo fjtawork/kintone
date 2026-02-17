@@ -4,7 +4,13 @@ from typing import List, Optional
 from uuid import UUID
 
 from app.core.database import get_db
-from app.schemas.record_schema import RecordCreate, RecordResponse, RecordUpdate
+from app.schemas.record_schema import (
+    RecordCreate,
+    RecordResponse,
+    RecordUpdate,
+    RecordListResponse,
+    RecordListPageResponse,
+)
 from app.schemas.process_schema import RecordStatusUpdate, WorkflowActionExecuteRequest
 from app.services.record_service import RecordService
 from app.api.deps import get_current_user
@@ -44,12 +50,13 @@ async def create_record(
 
     return await RecordService.create_record(db, record_in, current_user.id)
 
-@router.get("", response_model=List[RecordResponse])
+@router.get("", response_model=List[RecordListResponse])
 async def read_records(
     app_id: UUID,
     skip: int = 0,
     limit: int = 100,
     filters: Optional[str] = None,
+    field_codes: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -72,14 +79,61 @@ async def read_records(
         except json.JSONDecodeError:
              raise HTTPException(status_code=400, detail="Invalid filters JSON")
 
+    list_field_codes: Optional[List[str]] = None
+    if field_codes:
+        list_field_codes = [code.strip() for code in field_codes.split(",") if code.strip()]
+
     return await RecordService.get_records(
         db, 
         app_id, 
         skip=skip, 
         limit=limit, 
         filters=filter_dict,
+        field_codes=list_field_codes,
         user=current_user,
         app_record_acl=app.record_acl
+    )
+
+
+@router.get("/paged", response_model=RecordListPageResponse)
+async def read_records_paged(
+    app_id: UUID,
+    limit: int = 50,
+    cursor: Optional[int] = None,
+    filters: Optional[str] = None,
+    field_codes: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    app = await AppService.get_app(db, app_id)
+    if not app:
+        raise HTTPException(status_code=404, detail="App not found")
+
+    perms = AppService.evaluate_app_permissions(app, current_user)
+    if not perms.view:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    filter_dict = {}
+    if filters:
+        try:
+            import json
+            filter_dict = json.loads(filters)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid filters JSON")
+
+    list_field_codes: Optional[List[str]] = None
+    if field_codes:
+        list_field_codes = [code.strip() for code in field_codes.split(",") if code.strip()]
+
+    return await RecordService.get_records_paged(
+        db=db,
+        app_id=app_id,
+        limit=limit,
+        cursor_record_number=cursor,
+        filters=filter_dict,
+        field_codes=list_field_codes,
+        user=current_user,
+        app_record_acl=app.record_acl,
     )
 
 

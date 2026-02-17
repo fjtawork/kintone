@@ -42,6 +42,7 @@ export const useUpdateRecord = (appId: string, recordId: string) => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['record', recordId] });
             queryClient.invalidateQueries({ queryKey: ['records', appId] });
+            queryClient.invalidateQueries({ queryKey: ['records-infinite', appId] });
         }
     });
 };
