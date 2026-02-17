@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { Bell } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -51,6 +50,14 @@ export const NotificationBell = () => {
         }
     };
 
+    const getLinkLabel = (item: NotificationItem) => {
+        const appNameMatch = item.title.match(/^\[(.+?)\]/);
+        if (appNameMatch?.[1]) {
+            return `${appNameMatch[1]} を開く`;
+        }
+        return '関連アプリを開く';
+    };
+
     return (
         <Popover>
             <PopoverTrigger asChild>
@@ -80,9 +87,11 @@ export const NotificationBell = () => {
                         <div className="p-4 text-sm text-muted-foreground">通知はありません。</div>
                     )}
                     {items.map((item) => {
-                        const content = (
-                            <div
-                                className={`p-3 border-b hover:bg-zinc-50 dark:hover:bg-zinc-900 ${!item.is_read ? 'bg-blue-50/60 dark:bg-blue-950/20' : ''}`}
+                        return (
+                            <button
+                                key={item.id}
+                                type="button"
+                                className={`w-full text-left p-3 border-b hover:bg-zinc-50 dark:hover:bg-zinc-900 ${!item.is_read ? 'bg-blue-50/60 dark:bg-blue-950/20' : ''}`}
                                 onClick={() => handleClickItem(item)}
                             >
                                 <div className="flex items-start justify-between gap-2">
@@ -90,18 +99,25 @@ export const NotificationBell = () => {
                                     {!item.is_read && <span className="mt-1 h-2 w-2 rounded-full bg-blue-600" />}
                                 </div>
                                 <p className="text-xs text-muted-foreground mt-1">{item.message}</p>
+                                {item.link_path && (
+                                    <div className="mt-2">
+                                        <a
+                                            href={item.link_path}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-xs text-blue-600 hover:underline"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleClickItem(item);
+                                            }}
+                                        >
+                                            {getLinkLabel(item)}
+                                        </a>
+                                    </div>
+                                )}
                                 <p className="text-[11px] text-muted-foreground mt-2">{formatDateTime(item.created_at)}</p>
-                            </div>
+                            </button>
                         );
-
-                        if (item.link_path) {
-                            return (
-                                <Link key={item.id} href={item.link_path}>
-                                    {content}
-                                </Link>
-                            );
-                        }
-                        return <div key={item.id}>{content}</div>;
                     })}
                 </div>
             </PopoverContent>

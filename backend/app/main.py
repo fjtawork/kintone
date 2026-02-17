@@ -35,11 +35,13 @@ from app.api.upload import router as upload_router
 from app.api.organization import router as organization_router
 from app.api.users import router as users_router
 from app.api.notifications import router as notifications_router
+from app.api.record_comments import router as record_comments_router
 
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(apps_router, prefix="/api/v1/apps", tags=["apps"])
 app.include_router(fields_router, prefix="/api/v1/fields", tags=["fields"])
 app.include_router(records_router, prefix="/api/v1/records", tags=["records"])
+app.include_router(record_comments_router, prefix="/api/v1/records", tags=["record-comments"])
 app.include_router(upload_router, prefix="/api/v1/files", tags=["files"])
 app.include_router(organization_router, prefix="/api/v1/organization", tags=["organization"])
 app.include_router(users_router, prefix="/api/v1/users", tags=["users"])

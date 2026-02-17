@@ -127,3 +127,139 @@ async def test_records_paged_cursor(client: AsyncClient, auth_headers, app_with_
     page2 = second_page.json()
     assert len(page2["items"]) == 2
     assert page2["items"][0]["record_number"] < page1["items"][-1]["record_number"]
+
+
+@pytest.mark.asyncio
+async def test_record_comments_enabled_and_retention(client: AsyncClient, auth_headers, app_with_fields):
+    app_id = app_with_fields
+
+    create_res = await client.post(
+        "/api/v1/records",
+        headers=auth_headers,
+        json={"app_id": app_id, "data": {"title": "Chat target"}},
+    )
+    assert create_res.status_code == 201
+    record_id = create_res.json()["id"]
+
+    # Enable chat and keep only latest 2 messages.
+    update_view = await client.put(
+        f"/api/v1/apps/{app_id}/view",
+        headers=auth_headers,
+        json={"record_chat_enabled": True, "record_chat_max_messages": 2},
+    )
+    assert update_view.status_code == 200
+
+    for text in ["first", "second", "third"]:
+        post_res = await client.post(
+            f"/api/v1/records/{record_id}/comments",
+            headers=auth_headers,
+            json={"message": text},
+        )
+        assert post_res.status_code == 200
+
+    list_res = await client.get(f"/api/v1/records/{record_id}/comments", headers=auth_headers)
+    assert list_res.status_code == 200
+    comments = list_res.json()
+    assert len(comments) == 2
+    assert comments[0]["message"] == "second"
+    assert comments[1]["message"] == "third"
+
+
+@pytest.mark.asyncio
+async def test_mention_candidates_are_permission_filtered(client: AsyncClient, auth_headers, app_with_fields):
+    app_id = app_with_fields
+
+    # Create second user (should be excluded by app ACL later).
+    second_email = "mention_other@example.com"
+    second_password = "password123"
+    signup = await client.post("/api/v1/auth/signup", json={"email": second_email, "password": second_password})
+    assert signup.status_code == 200
+
+    # Restrict app view to creator only.
+    app_update = await client.put(
+        f"/api/v1/apps/{app_id}",
+        headers=auth_headers,
+        json={
+            "app_acl": [
+                {"entity_type": "creator", "allow_view": True, "allow_manage": True}
+            ]
+        },
+    )
+    assert app_update.status_code == 200
+
+    # Enable chat.
+    update_view = await client.put(
+        f"/api/v1/apps/{app_id}/view",
+        headers=auth_headers,
+        json={"record_chat_enabled": True, "record_chat_max_messages": 300},
+    )
+    assert update_view.status_code == 200
+
+    create_res = await client.post(
+        "/api/v1/records",
+        headers=auth_headers,
+        json={"app_id": app_id, "data": {"title": "mention target"}},
+    )
+    assert create_res.status_code == 201
+    record_id = create_res.json()["id"]
+
+    candidates_res = await client.get(
+        f"/api/v1/records/{record_id}/mention-candidates",
+        headers=auth_headers,
+    )
+    assert candidates_res.status_code == 200
+    candidates = candidates_res.json()
+
+    emails = {item["email"] for item in candidates}
+    assert "test_records_user@example.com" in emails
+    assert second_email not in emails
+
+
+@pytest.mark.asyncio
+async def test_record_comment_mention_creates_notification(client: AsyncClient, auth_headers, app_with_fields):
+    app_id = app_with_fields
+
+    target_email = "mention_notify_target@example.com"
+    mention_token = "mention_notify_target"
+    target_password = "password123"
+    signup = await client.post("/api/v1/auth/signup", json={"email": target_email, "password": target_password})
+    assert signup.status_code == 200
+
+    # Enable chat
+    update_view = await client.put(
+        f"/api/v1/apps/{app_id}/view",
+        headers=auth_headers,
+        json={"record_chat_enabled": True, "record_chat_max_messages": 300},
+    )
+    assert update_view.status_code == 200
+
+    create_res = await client.post(
+        "/api/v1/records",
+        headers=auth_headers,
+        json={"app_id": app_id, "data": {"title": "mention notify"}},
+    )
+    assert create_res.status_code == 201
+    record_id = create_res.json()["id"]
+
+    post_res = await client.post(
+        f"/api/v1/records/{record_id}/comments",
+        headers=auth_headers,
+        json={"message": f"確認です @{mention_token}"},
+    )
+    assert post_res.status_code == 200
+
+    login_target = await client.post(
+        "/api/v1/auth/login",
+        data={"username": target_email, "password": target_password},
+    )
+    assert login_target.status_code == 200
+    target_headers = {"Authorization": f"Bearer {login_target.json()['access_token']}"}
+
+    notifications_res = await client.get("/api/v1/notifications", headers=target_headers)
+    assert notifications_res.status_code == 200
+    notifications = notifications_res.json()["items"]
+    mention = next((item for item in notifications if item["kind"] == "record_mention" and item["record_id"] == record_id), None)
+    assert mention is not None
+    assert "Records App" in mention["title"]
+    assert "確認です" in mention["message"]
+    assert mention["link_path"] == f"/apps/{app_id}/records/{record_id}"

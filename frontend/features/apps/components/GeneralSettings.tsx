@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -8,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { api } from '@/lib/axios';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import {
     Form,
     FormControl,
@@ -25,11 +25,22 @@ const formSchema = z.object({
     description: z.string().optional(),
     icon: z.string().optional(),
     theme: z.string().optional(),
+    record_chat_enabled: z.boolean().default(false),
+    record_chat_max_messages: z.coerce.number().int().min(1).max(1000).default(300),
 });
 
 interface GeneralSettingsProps {
     appId: string;
-    settings: any; // { name, description, icon, theme }
+    settings: {
+        name?: string;
+        description?: string;
+        icon?: string;
+        theme?: string;
+        view_settings?: {
+            record_chat_enabled?: boolean;
+            record_chat_max_messages?: number;
+        };
+    };
 }
 
 export const GeneralSettings = ({ appId, settings }: GeneralSettingsProps) => {
@@ -42,15 +53,23 @@ export const GeneralSettings = ({ appId, settings }: GeneralSettingsProps) => {
             description: settings?.description || '',
             icon: settings?.icon || '',
             theme: settings?.theme || '',
+            record_chat_enabled: settings?.view_settings?.record_chat_enabled ?? false,
+            record_chat_max_messages: settings?.view_settings?.record_chat_max_messages ?? 300,
         },
     });
 
     const mutation = useMutation({
         mutationFn: async (values: z.infer<typeof formSchema>) => {
-            // Reusing the process management or creating a new endpoint?
-            // Usually general updates go to PATCH /apps/{id} or PUT /apps/{id}
-            // backend/api/endpoints.py needs to support updating name/desc/icon/theme via PUT or PATCH
-            await api.put(`/apps/${appId}`, values);
+            await api.put(`/apps/${appId}`, {
+                name: values.name,
+                description: values.description,
+                icon: values.icon,
+                theme: values.theme,
+            });
+            await api.put(`/apps/${appId}/view`, {
+                record_chat_enabled: values.record_chat_enabled,
+                record_chat_max_messages: values.record_chat_max_messages,
+            });
         },
         onSuccess: () => {
             // Invalidate app details
@@ -62,10 +81,6 @@ export const GeneralSettings = ({ appId, settings }: GeneralSettingsProps) => {
             toast.error('設定の更新に失敗しました');
         }
     });
-
-    // Wait, check if PUT /apps/{id} supports partial updates?
-    // Pydantic schema AppUpdate typically allows optionals.
-    // I need to check backend/api/endpoints.py update_app logic.
 
     function onSubmit(values: z.infer<typeof formSchema>) {
         mutation.mutate(values);
@@ -124,6 +139,38 @@ export const GeneralSettings = ({ appId, settings }: GeneralSettingsProps) => {
                                     <FormLabel>テーマカラー</FormLabel>
                                     <FormControl>
                                         <ColorPicker value={field.value} onChange={field.onChange} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                    <div className="border rounded-md p-3 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium">レコードチャット</p>
+                                <p className="text-xs text-muted-foreground">各レコードでユーザー同士の会話を有効化します。</p>
+                            </div>
+                            <FormField
+                                control={form.control}
+                                name="record_chat_enabled"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormControl>
+                                            <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                        </FormControl>
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+                        <FormField
+                            control={form.control}
+                            name="record_chat_max_messages"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>最大メッセージ保持件数</FormLabel>
+                                    <FormControl>
+                                        <Input type="number" min={1} max={1000} {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>

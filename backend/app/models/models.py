@@ -32,7 +32,15 @@ class App(Base):
     })
     app_acl = Column(JSONB, default=[]) # List of {entity_type, entity_id, allow_view, allow_manage...}
     record_acl = Column(JSONB, default=[]) # List of rules for conditional access
-    view_settings = Column(JSONB, default={"list_fields": [], "form_columns": 1})
+    view_settings = Column(
+        JSONB,
+        default={
+            "list_fields": [],
+            "form_columns": 1,
+            "record_chat_enabled": False,
+            "record_chat_max_messages": 300,
+        },
+    )
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True) # Nullable for existing records
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

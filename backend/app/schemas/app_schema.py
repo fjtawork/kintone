@@ -51,3 +51,5 @@ class ProcessManagementUpdate(BaseModel):
 class ViewSettingsUpdate(BaseModel):
     list_fields: Optional[List[str]] = None
     form_columns: Optional[int] = Field(default=None, ge=1, le=3)
+    record_chat_enabled: Optional[bool] = None
+    record_chat_max_messages: Optional[int] = Field(default=None, ge=1, le=1000)

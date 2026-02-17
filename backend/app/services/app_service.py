@@ -204,7 +204,11 @@ class AppService:
             current_settings["list_fields"] = view_update.list_fields
         if view_update.form_columns is not None:
             current_settings["form_columns"] = view_update.form_columns
-        
+        if view_update.record_chat_enabled is not None:
+            current_settings["record_chat_enabled"] = view_update.record_chat_enabled
+        if view_update.record_chat_max_messages is not None:
+            current_settings["record_chat_max_messages"] = view_update.record_chat_max_messages
+
         app.view_settings = current_settings
         flag_modified(app, "view_settings")
         

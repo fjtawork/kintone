@@ -10,6 +10,7 @@ import { ArrowLeft, Edit, X } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { DynamicForm } from '@/features/records/components/DynamicForm';
+import { RecordChat } from '@/features/records/components/RecordChat';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import {
@@ -41,6 +42,8 @@ type AppDetails = {
     user_permissions?: AppPermission;
     view_settings?: {
         form_columns?: number;
+        record_chat_enabled?: boolean;
+        record_chat_max_messages?: number;
     };
 };
 
@@ -364,6 +367,14 @@ export default function RecordDetailPage() {
                         ))}
                     </div>
                 )}
+            </div>
+
+            <div className="mt-6">
+                <RecordChat
+                    recordId={recordId}
+                    enabled={Boolean(app?.view_settings?.record_chat_enabled)}
+                    maxMessages={app?.view_settings?.record_chat_max_messages || 300}
+                />
             </div>
 
             <Dialog open={isWorkflowDialogOpen} onOpenChange={setIsWorkflowDialogOpen}>
