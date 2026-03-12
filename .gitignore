@@ -64,3 +64,5 @@ override.tf.json
 # Runtime artifacts
 *.log
 backend/uploads/
+php-app/vendor/
+php-app/out/

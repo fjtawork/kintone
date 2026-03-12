@@ -1,0 +1,10 @@
+/*
+ * custom/style.css
+ *
+ * ここに書いたスタイルはコアのアップデートで上書きされません。
+ * ブラウザが起動時に読み込み、全ページに適用されます。
+ *
+ * 例:
+ *   :root { --brand-color: #0066cc; }
+ *   .navbar { background: var(--brand-color); }
+ */

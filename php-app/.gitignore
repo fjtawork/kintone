@@ -1,0 +1,24 @@
+# Next.js static export (generated artifacts)
+_next/
+index.html
+index.txt
+*.txt
+404.html
+404/
+_not-found/
+login/
+signup/
+profile/
+admin/
+apps/
+*.svg
+*.ico
+favicon.ico
+
+# PHP dependencies
+vendor/
+
+# Runtime
+storage/logs/
+storage/uploads/
+.phpunit.result.cache

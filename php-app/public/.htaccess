@@ -1,0 +1,20 @@
+Options +FollowSymLinks
+RewriteEngine On
+
+# Apache が Authorization ヘッダーを剥ぎ取る問題の回避
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+# custom/ 配下の .php ファイルは直接アクセス禁止（403）
+RewriteRule ^custom/.*\.php$ - [F,L]
+
+# custom/ 配下の実ファイルはそのまま配信（style.css など）
+RewriteCond %{REQUEST_URI} ^/custom/
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^ - [L]
+
+# その他の実ファイルはそのまま配信
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^ - [L]
+
+# それ以外はすべて index.php へ
+RewriteRule ^ index.php [QSA,L]
