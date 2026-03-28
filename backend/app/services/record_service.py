@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func
+from sqlalchemy import String, cast, func
 from typing import Any, Dict, List, Optional, Set
 from uuid import UUID
 from datetime import datetime, timezone
@@ -354,7 +354,7 @@ class RecordService:
                 if "$contains" in raw_filter:
                     contains_value = raw_filter.get("$contains")
                     if contains_value:
-                        query = query.where(Record.data.astext.ilike(f"%{contains_value}%"))
+                        query = query.where(cast(Record.data, String).ilike(f"%{contains_value}%"))
                     continue
                 op = str(raw_filter.get("op", "eq"))
                 value = raw_filter.get("value")

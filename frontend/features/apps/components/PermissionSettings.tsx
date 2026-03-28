@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/axios';
 import { Button } from '@/components/ui/button';
@@ -8,136 +8,185 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-    Card,
-    CardHeader,
-    CardTitle,
-    CardContent,
-    CardDescription
-} from '@/components/ui/card';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
-import { getDepartments } from '@/features/organization/api';
-import { getJobTitles } from '@/features/organization/api';
+import { X } from 'lucide-react';
+import { getDepartments, getJobTitles } from '@/features/organization/api';
 import { getUsers } from '@/features/users/api';
+import { toast } from 'sonner';
 
 interface PermissionSettingsProps {
     appId: string;
-    app: any; // The full app object
+    app: any;
 }
 
+// entity_type の表示ラベル
+const ENTITY_TYPE_LABELS: Record<string, string> = {
+    everyone:   '全員',
+    creator:    '作成者',
+    user:       'ユーザー',
+    department: '部署',
+    job_title:  '役職',
+};
+
 export const PermissionSettings = ({ appId, app }: PermissionSettingsProps) => {
-    const [appAcl, setAppAcl] = useState<any[]>(app.app_acl || []);
+    const [appAcl,    setAppAcl]    = useState<any[]>(app.app_acl    || []);
     const [recordAcl, setRecordAcl] = useState<any[]>(app.record_acl || []);
 
-    // Entity Selection States
-    const [selectedEntityType, setSelectedEntityType] = useState('user');
-    const [selectedEntityId, setSelectedEntityId] = useState('');
+    // アプリACL 追加フォーム
+    const [appEntityType, setAppEntityType] = useState('user');
+    const [appEntityId,   setAppEntityId]   = useState('');
+
+    // レコードACL 追加エンティティフォーム（ルールごと）
+    const [recEntityType, setRecEntityType] = useState<Record<number, string>>({});
+    const [recEntityId,   setRecEntityId]   = useState<Record<number, string>>({});
 
     const queryClient = useQueryClient();
 
-    // Fetch Master Data
     const { data: departments } = useQuery({ queryKey: ['departments'], queryFn: getDepartments });
-    const { data: jobTitles } = useQuery({ queryKey: ['jobTitles'], queryFn: getJobTitles });
-    const { data: users } = useQuery({ queryKey: ['users'], queryFn: () => getUsers(0, 500) }); // Fetch reasonable limit
+    const { data: jobTitles }   = useQuery({ queryKey: ['jobTitles'],   queryFn: getJobTitles });
+    const { data: users }       = useQuery({ queryKey: ['users'],       queryFn: () => getUsers(0, 500) });
+    const { data: fields }      = useQuery({
+        queryKey: ['fields', appId],
+        queryFn: async () => {
+            const { data } = await api.get(`/fields/app/${appId}`);
+            return data as { code: string; label: string; type: string }[];
+        },
+    });
 
     const mutation = useMutation({
-        mutationFn: async (data: any) => {
-            // Update using General App Update endpoint which supports ACLs now
-            await api.put(`/apps/${appId}`, data);
+        mutationFn: async (payload: any) => {
+            await api.put(`/apps/${appId}`, payload);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['app', appId] });
-            alert('権限設定を保存しました。');
-        }
+            toast.success('権限設定を保存しました');
+        },
+        onError: () => toast.error('保存に失敗しました'),
     });
 
     const handleSave = () => {
-        mutation.mutate({
-            app_acl: appAcl,
-            record_acl: recordAcl
-        });
+        mutation.mutate({ app_acl: appAcl, record_acl: recordAcl });
     };
 
-    // --- App ACL Helpers ---
+    // ── アプリACL ──────────────────────────────
     const addAppRule = () => {
-        const newRule = {
-            entity_type: selectedEntityType,
-            entity_id: selectedEntityType === 'creator' || selectedEntityType === 'everyone' ? null : selectedEntityId,
-            allow_view: true,
-            allow_edit: false,
+        if (['user', 'department', 'job_title'].includes(appEntityType) && !appEntityId) return;
+        setAppAcl([...appAcl, {
+            entity_type: appEntityType,
+            entity_id:   ['creator', 'everyone'].includes(appEntityType) ? null : appEntityId,
+            allow_view:   true,
+            allow_edit:   false,
             allow_delete: false,
-            allow_manage: false
-        };
-
-        // Prevent duplicates? logic here if needed
-        setAppAcl([...appAcl, newRule]);
+            allow_manage: false,
+        }]);
+        setAppEntityId('');
     };
 
-    const removeAppRule = (index: number) => {
-        const newAcl = [...appAcl];
-        newAcl.splice(index, 1);
-        setAppAcl(newAcl);
+    const removeAppRule   = (i: number) => setAppAcl(appAcl.filter((_, idx) => idx !== i));
+    const updateAppRule   = (i: number, field: string, val: boolean) => {
+        const next = [...appAcl];
+        next[i][field] = val;
+        setAppAcl(next);
     };
 
-    const updateAppRule = (index: number, field: string, value: boolean) => {
-        const newAcl = [...appAcl];
-        newAcl[index][field] = value;
-        setAppAcl(newAcl);
-    };
-
-    // --- Record ACL Helpers ---
+    // ── レコードACL ────────────────────────────
     const addRecordRule = () => {
-        setRecordAcl([
-            ...recordAcl,
-            {
-                condition: { field: '', operator: '=', value: '' },
-                permissions: { view: [] } // For simplicity, only VIEW restrictions on records for now as per MVP
-            }
-        ]);
+        setRecordAcl([...recordAcl, {
+            condition:   { field: 'status', operator: '=', value: '' },
+            permissions: { view: [] },
+        }]);
     };
 
-    const updateRecordCondition = (index: number, field: string, value: string) => {
-        const newAcl = [...recordAcl];
-        newAcl[index].condition = { ...newAcl[index].condition, [field]: value };
-        setRecordAcl(newAcl);
+    const removeRecordRule = (i: number) => setRecordAcl(recordAcl.filter((_, idx) => idx !== i));
+
+    const updateCondition = (ruleIdx: number, key: string, val: string) => {
+        const next = [...recordAcl];
+        next[ruleIdx].condition = { ...next[ruleIdx].condition, [key]: val };
+        setRecordAcl(next);
     };
 
-    const addRecordPermEntity = (ruleIndex: number, type: string, id: string) => {
-        const newAcl = [...recordAcl];
-        const currentView = newAcl[ruleIndex].permissions?.view || [];
+    const addRecordEntity = (ruleIdx: number) => {
+        const type = recEntityType[ruleIdx] ?? 'creator';
+        const id   = recEntityId[ruleIdx]   ?? '';
+        if (['user', 'department', 'job_title'].includes(type) && !id) return;
 
-        // Add
-        const newEntity = { entity_type: type, entity_id: (type === 'creator' || type === 'everyone') ? null : id };
-        newAcl[ruleIndex].permissions = {
-            ...newAcl[ruleIndex].permissions,
-            view: [...currentView, newEntity]
+        const next = [...recordAcl];
+        const currentView = next[ruleIdx].permissions?.view ?? [];
+        next[ruleIdx].permissions = {
+            ...next[ruleIdx].permissions,
+            view: [...currentView, {
+                entity_type: type,
+                entity_id:   ['creator', 'everyone'].includes(type) ? null : id,
+            }],
         };
-        setRecordAcl(newAcl);
+        setRecordAcl(next);
+        setRecEntityId(prev => ({ ...prev, [ruleIdx]: '' }));
     };
 
-    const removeRecordPermEntity = (ruleIndex: number, entityIndex: number) => {
-        const newAcl = [...recordAcl];
-        newAcl[ruleIndex].permissions.view.splice(entityIndex, 1);
-        setRecordAcl(newAcl);
+    const removeRecordEntity = (ruleIdx: number, entityIdx: number) => {
+        const next = [...recordAcl];
+        next[ruleIdx].permissions.view = next[ruleIdx].permissions.view.filter((_: any, i: number) => i !== entityIdx);
+        setRecordAcl(next);
     };
 
-    // Helper to get entity name
-    const getEntityName = (type: string, id: string) => {
+    // ── 表示名ヘルパー ─────────────────────────
+    const entityName = (type: string, id: string | null) => {
         if (type === 'everyone') return '全員';
-        if (type === 'creator') return '作成者';
-        if (type === 'user') return users?.find(u => u.id === id)?.full_name || users?.find(u => u.id === id)?.email || id;
-        if (type === 'department') return departments?.find(d => d.id === id)?.name || id;
-        if (type === 'job_title') return jobTitles?.find(t => t.id === id)?.name || id;
+        if (type === 'creator')  return '作成者';
+        if (type === 'user')       return users?.find(u => u.id === id)?.full_name || users?.find(u => u.id === id)?.email || id;
+        if (type === 'department') return departments?.find((d: any) => d.id === id)?.name || id;
+        if (type === 'job_title')  return jobTitles?.find((t: any)  => t.id === id)?.name || id;
         return `${type}:${id}`;
     };
+
+    // エンティティ選択 UI（アプリACL・レコードACL共通）
+    const EntitySelector = ({
+        type, setType, id, setId, onAdd, label = 'ルール追加',
+    }: {
+        type: string; setType: (v: string) => void;
+        id: string;   setId:   (v: string) => void;
+        onAdd: () => void; label?: string;
+    }) => (
+        <div className="flex flex-wrap gap-2 items-end p-3 bg-muted/40 rounded-md">
+            <div className="space-y-1 min-w-[120px]">
+                <Label className="text-xs">種別</Label>
+                <Select value={type} onValueChange={setType}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="everyone">全員</SelectItem>
+                        <SelectItem value="creator">作成者</SelectItem>
+                        <SelectItem value="user">ユーザー</SelectItem>
+                        <SelectItem value="department">部署</SelectItem>
+                        <SelectItem value="job_title">役職</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+
+            {['user', 'department', 'job_title'].includes(type) && (
+                <div className="space-y-1 min-w-[180px]">
+                    <Label className="text-xs">対象</Label>
+                    <Select value={id} onValueChange={setId}>
+                        <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="選択..." /></SelectTrigger>
+                        <SelectContent>
+                            {type === 'user' && users?.map((u: any) => (
+                                <SelectItem key={u.id} value={u.id}>{u.full_name || u.email}</SelectItem>
+                            ))}
+                            {type === 'department' && departments?.map((d: any) => (
+                                <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                            ))}
+                            {type === 'job_title' && jobTitles?.map((t: any) => (
+                                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            )}
+
+            <Button size="sm" variant="outline" onClick={onAdd}>{label}</Button>
+        </div>
+    );
 
     return (
         <div className="space-y-6">
@@ -154,176 +203,160 @@ export const PermissionSettings = ({ appId, app }: PermissionSettingsProps) => {
                     <TabsTrigger value="record">レコード権限</TabsTrigger>
                 </TabsList>
 
-                {/* --- APP ACCESS TAB --- */}
+                {/* ─── アプリ権限タブ ─── */}
                 <TabsContent value="app">
                     <Card>
                         <CardHeader>
                             <CardTitle>アプリアクセス制御</CardTitle>
-                            <CardDescription>このアプリの閲覧・編集・管理・削除権限を設定します。</CardDescription>
+                            <CardDescription>このアプリの閲覧・編集・削除・管理権限を設定します。ルールが空の場合はデフォルト（全員閲覧、作成者管理）が適用されます。</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            {/* Entity Selector */}
-                            <div className="flex gap-2 items-end border p-4 rounded-md bg-gray-50">
-                                <div className="space-y-2 w-40">
-                                    <Label>種別</Label>
-                                    <Select value={selectedEntityType} onValueChange={setSelectedEntityType}>
-                                        <SelectTrigger><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="user">ユーザー</SelectItem>
-                                            <SelectItem value="department">部署</SelectItem>
-                                            <SelectItem value="job_title">役職</SelectItem>
-                                            <SelectItem value="everyone">全員</SelectItem>
-                                            <SelectItem value="creator">作成者</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
+                            <EntitySelector
+                                type={appEntityType} setType={setAppEntityType}
+                                id={appEntityId}     setId={setAppEntityId}
+                                onAdd={addAppRule}   label="追加"
+                            />
 
-                                {['user', 'department', 'job_title'].includes(selectedEntityType) && (
-                                    <div className="space-y-2 w-60">
-                                        <Label>対象を選択</Label>
-                                        <Select value={selectedEntityId} onValueChange={setSelectedEntityId}>
-                                            <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
-                                            <SelectContent>
-                                                {selectedEntityType === 'user' && users?.map((u: any) => (
-                                                    <SelectItem key={u.id} value={u.id}>{u.full_name || u.email}</SelectItem>
-                                                ))}
-                                                {selectedEntityType === 'department' && departments?.map((d: any) => (
-                                                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                                                ))}
-                                                {selectedEntityType === 'job_title' && jobTitles?.map((t: any) => (
-                                                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                )}
-
-                                <Button onClick={addAppRule} variant="outline">ルール追加</Button>
-                            </div>
-
-                            {/* Rules Table */}
                             <Table>
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>対象</TableHead>
-                                        <TableHead>閲覧</TableHead>
-                                        <TableHead>編集</TableHead>
-                                        <TableHead>削除</TableHead>
-                                        <TableHead>管理</TableHead>
-                                        <TableHead></TableHead>
+                                        <TableHead className="text-center">閲覧</TableHead>
+                                        <TableHead className="text-center">編集</TableHead>
+                                        <TableHead className="text-center">削除</TableHead>
+                                        <TableHead className="text-center">管理</TableHead>
+                                        <TableHead />
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {appAcl.map((rule, idx) => (
+                                    {appAcl.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={6} className="text-center text-muted-foreground text-sm py-6">
+                                                ルールなし（デフォルト: 全員閲覧、作成者管理）
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : appAcl.map((rule, idx) => (
                                         <TableRow key={idx}>
                                             <TableCell className="font-medium">
-                                                {getEntityName(rule.entity_type, rule.entity_id)}
+                                                {entityName(rule.entity_type, rule.entity_id)}
                                             </TableCell>
+                                            {(['allow_view', 'allow_edit', 'allow_delete', 'allow_manage'] as const).map(f => (
+                                                <TableCell key={f} className="text-center">
+                                                    <Checkbox
+                                                        checked={!!rule[f]}
+                                                        onCheckedChange={c => updateAppRule(idx, f, !!c)}
+                                                    />
+                                                </TableCell>
+                                            ))}
                                             <TableCell>
-                                                <Checkbox checked={rule.allow_view} onCheckedChange={(c) => updateAppRule(idx, 'allow_view', !!c)} />
-                                            </TableCell>
-                                            <TableCell>
-                                                <Checkbox checked={rule.allow_edit} onCheckedChange={(c) => updateAppRule(idx, 'allow_edit', !!c)} />
-                                            </TableCell>
-                                            <TableCell>
-                                                <Checkbox checked={rule.allow_delete} onCheckedChange={(c) => updateAppRule(idx, 'allow_delete', !!c)} />
-                                            </TableCell>
-                                            <TableCell>
-                                                <Checkbox checked={rule.allow_manage} onCheckedChange={(c) => updateAppRule(idx, 'allow_manage', !!c)} />
-                                            </TableCell>
-                                            <TableCell>
-                                                <Button variant="ghost" size="sm" onClick={() => removeAppRule(idx)} className="text-red-500">削除</Button>
+                                                <Button variant="ghost" size="sm" onClick={() => removeAppRule(idx)}
+                                                    className="text-destructive hover:text-destructive">
+                                                    <X className="size-4" />
+                                                </Button>
                                             </TableCell>
                                         </TableRow>
                                     ))}
-                                    {appAcl.length === 0 && (
-                                        <TableRow>
-                                            <TableCell colSpan={6} className="text-center text-gray-500">ルールがありません。（既定: 全員閲覧、作成者管理）</TableCell>
-                                        </TableRow>
-                                    )}
                                 </TableBody>
                             </Table>
                         </CardContent>
                     </Card>
                 </TabsContent>
 
-                {/* --- RECORD ACCESS TAB --- */}
+                {/* ─── レコード権限タブ ─── */}
                 <TabsContent value="record">
                     <Card>
                         <CardHeader>
                             <CardTitle>レコードアクセス制御</CardTitle>
-                            <CardDescription>条件に基づいてレコードの閲覧権限を制御します。</CardDescription>
+                            <CardDescription>
+                                フィールドの値に応じてレコードの閲覧権限を絞り込みます。条件に一致したルールの「閲覧許可対象」に含まれないユーザーはそのレコードを見られません。ルールがない場合は全員が閲覧できます。
+                            </CardDescription>
                         </CardHeader>
-                        <CardContent className="space-y-6">
-                            <Button onClick={addRecordRule}>条件を追加</Button>
+                        <CardContent className="space-y-4">
+                            <Button variant="outline" onClick={addRecordRule}>+ 条件ルールを追加</Button>
 
-                            {recordAcl.map((rule, idx) => (
-                                <div key={idx} className="border p-4 rounded-md mb-4 bg-slate-50">
-                                    <div className="flex justify-between mb-4">
-                                        <h4 className="font-bold">ルール #{idx + 1}</h4>
-                                        <Button variant="ghost" size="sm" onClick={() => {
-                                            const n = [...recordAcl]; n.splice(idx, 1); setRecordAcl(n);
-                                        }} className="text-red-500">ルール削除</Button>
+                            {recordAcl.length === 0 && (
+                                <p className="text-sm text-muted-foreground">ルールなし（全レコードを全員が閲覧可能）</p>
+                            )}
+
+                            {recordAcl.map((rule, rIdx) => (
+                                <div key={rIdx} className="border rounded-lg p-4 space-y-4 bg-muted/20">
+                                    <div className="flex justify-between items-center">
+                                        <span className="font-semibold text-sm">ルール #{rIdx + 1}</span>
+                                        <Button variant="ghost" size="sm" onClick={() => removeRecordRule(rIdx)}
+                                            className="text-destructive hover:text-destructive">
+                                            <X className="size-4 mr-1" />削除
+                                        </Button>
                                     </div>
 
-                                    {/* Condition Builder */}
-                                    <div className="flex gap-2 items-center mb-4">
-                                        <span className="text-sm font-medium">条件</span>
-                                        <Select value={rule.condition?.field} onValueChange={(v) => updateRecordCondition(idx, 'field', v)}>
-                                            <SelectTrigger className="w-40"><SelectValue placeholder="項目" /></SelectTrigger>
-                                            <SelectContent>
-                                                {/* We need app fields here. Assuming 'app.fields' exists if fetched with relation or process fields manually?
-                                                     Let's assume app.fields is available or we default to static options for now. 
-                                                     Actually App object usually needs fields. 
-                                                     The 'app' prop might not have fields populated unless we included them. 
-                                                     Let's assume 'status' and basic fields plus dynamic ones. */}
-                                                <SelectItem value="status">ステータス</SelectItem>
-                                                {/* TODO: Map dynamic fields if available */}
-                                            </SelectContent>
-                                        </Select>
-                                        <Select value={rule.condition?.operator} onValueChange={(v) => updateRecordCondition(idx, 'operator', v)}>
-                                            <SelectTrigger className="w-24"><SelectValue placeholder="演算子" /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="=">=</SelectItem>
-                                                <SelectItem value="!=">!=</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <Input
-                                            className="w-40"
-                                            placeholder="値"
-                                            value={rule.condition?.value}
-                                            onChange={(e) => updateRecordCondition(idx, 'value', e.target.value)}
-                                        />
-                                        <span className="text-sm font-medium">閲覧許可:</span>
+                                    {/* 条件 */}
+                                    <div className="space-y-2">
+                                        <Label className="text-xs text-muted-foreground">適用条件（このフィールド値のときに権限を制限）</Label>
+                                        <div className="flex flex-wrap gap-2 items-center">
+                                            <Select
+                                                value={rule.condition?.field ?? 'status'}
+                                                onValueChange={v => updateCondition(rIdx, 'field', v)}
+                                            >
+                                                <SelectTrigger className="h-8 text-sm w-44">
+                                                    <SelectValue placeholder="フィールド" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="status">ステータス</SelectItem>
+                                                    {fields?.map(f => (
+                                                        <SelectItem key={f.code} value={f.code}>{f.label}（{f.code}）</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+
+                                            <Select
+                                                value={rule.condition?.operator ?? '='}
+                                                onValueChange={v => updateCondition(rIdx, 'operator', v)}
+                                            >
+                                                <SelectTrigger className="h-8 text-sm w-20">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="=">=（等しい）</SelectItem>
+                                                    <SelectItem value="!=">≠（等しくない）</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+
+                                            <Input
+                                                className="h-8 text-sm w-40"
+                                                placeholder="値を入力"
+                                                value={rule.condition?.value ?? ''}
+                                                onChange={e => updateCondition(rIdx, 'value', e.target.value)}
+                                            />
+                                        </div>
                                     </div>
 
-                                    {/* Permission List for this Rule */}
-                                    <div className="pl-4 border-l-2 border-blue-200">
-                                        <div className="flex flex-wrap gap-2 mb-2">
-                                            {rule.permissions?.view?.map((entity: any, eIdx: number) => (
-                                                <div key={eIdx} className="bg-white border px-3 py-1 rounded-full text-sm flex items-center gap-2">
-                                                    {getEntityName(entity.entity_type, entity.entity_id)}
-                                                    <button onClick={() => removeRecordPermEntity(idx, eIdx)} className="text-red-500 hover:text-red-700">×</button>
-                                                </div>
+                                    {/* 閲覧許可対象 */}
+                                    <div className="space-y-2">
+                                        <Label className="text-xs text-muted-foreground">閲覧を許可する対象</Label>
+                                        <div className="flex flex-wrap gap-1.5 min-h-8">
+                                            {(rule.permissions?.view ?? []).length === 0 && (
+                                                <span className="text-xs text-muted-foreground">（未設定 = 誰も閲覧不可）</span>
+                                            )}
+                                            {(rule.permissions?.view ?? []).map((entity: any, eIdx: number) => (
+                                                <span key={eIdx} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-secondary text-secondary-foreground">
+                                                    {entityName(entity.entity_type, entity.entity_id)}
+                                                    <button
+                                                        onClick={() => removeRecordEntity(rIdx, eIdx)}
+                                                        className="hover:text-destructive ml-0.5"
+                                                    >
+                                                        <X className="size-3" />
+                                                    </button>
+                                                </span>
                                             ))}
                                         </div>
 
-                                        {/* Add Entity to Rule */}
-                                        <div className="flex gap-2 items-center mt-2">
-                                            <Select onValueChange={(val) => {
-                                                // Simple hack: value="type:id"
-                                                const [t, i] = val.split(':');
-                                                addRecordPermEntity(idx, t, i || '');
-                                            }}>
-                                                <SelectTrigger className="w-60"><SelectValue placeholder="対象を追加..." /></SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="everyone:">全員</SelectItem>
-                                                    <SelectItem value="creator:">作成者</SelectItem>
-                                                    {departments?.map((d: any) => <SelectItem key={d.id} value={`department:${d.id}`}>部署: {d.name}</SelectItem>)}
-                                                    {jobTitles?.map((t: any) => <SelectItem key={t.id} value={`job_title:${t.id}`}>役職: {t.name}</SelectItem>)}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
+                                        <EntitySelector
+                                            type={recEntityType[rIdx] ?? 'creator'}
+                                            setType={v => setRecEntityType(prev => ({ ...prev, [rIdx]: v }))}
+                                            id={recEntityId[rIdx] ?? ''}
+                                            setId={v => setRecEntityId(prev => ({ ...prev, [rIdx]: v }))}
+                                            onAdd={() => addRecordEntity(rIdx)}
+                                            label="許可対象を追加"
+                                        />
                                     </div>
                                 </div>
                             ))}

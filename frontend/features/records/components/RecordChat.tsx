@@ -233,7 +233,7 @@ export const RecordChat = ({ recordId, enabled, maxMessages = 300 }: RecordChatP
 
                 <div className="space-y-2">
                     {(comments || []).map((comment) => {
-                        const isMine = Boolean(me?.id) && comment.user_id === me.id;
+                        const isMine = Boolean(me?.id) && comment.user_id === me?.id;
                         return (
                         <div key={comment.id} className={cn('flex', isMine ? 'justify-end' : 'justify-start')}>
                             <div

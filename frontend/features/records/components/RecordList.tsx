@@ -65,19 +65,19 @@ export const RecordList = ({ appId, fields, processManagement, filters }: Record
         switch (field.type) {
             case 'DATE':
                 try {
-                    return format(new Date(value), 'yyyy-MM-dd');
+                    return format(new Date(value as string), 'yyyy-MM-dd');
                 } catch { return String(value); }
             case 'DATETIME':
                 try {
-                    return format(new Date(value), 'yyyy-MM-dd p'); // Date + Time
+                    return format(new Date(value as string), 'yyyy-MM-dd p'); // Date + Time
                 } catch { return String(value); }
             case 'CHECKBOX':
                 return Array.isArray(value) ? value.join(', ') : String(value);
             case 'FILE':
                 if (!value) return '-';
                 // Value is the fileKey (e.g. uuid_filename.ext)
-                const fileUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/static/uploads/${value}`;
-                const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(value);
+                const fileUrl = `/static/uploads/${value as string}`;
+                const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(value as string);
 
                 return (
                     <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>

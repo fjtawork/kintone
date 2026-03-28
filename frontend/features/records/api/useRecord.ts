@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/axios';
 
-export interface Record {
+export interface KintoneRecord {
     id: string;
     app_id: string;
     record_number: number;
@@ -23,7 +23,7 @@ export interface Record {
 export const useRecord = (recordId: string) => {
     return useQuery({
         queryKey: ['record', recordId],
-        queryFn: async (): Promise<Record> => {
+        queryFn: async (): Promise<KintoneRecord> => {
             const { data } = await api.get(`/records/${recordId}`);
             return data;
         },
@@ -35,7 +35,7 @@ export const useUpdateRecord = (appId: string, recordId: string) => {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async (payload: { data: Record<string, unknown> }) => {
+        mutationFn: async (payload: { data: Record<string, unknown>; acl?: unknown }) => {
             const { data: response } = await api.put(`/records/${recordId}`, payload);
             return response;
         },

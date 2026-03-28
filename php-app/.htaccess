@@ -1,0 +1,44 @@
+RewriteEngine On
+
+# Authorization ヘッダーをPHPに渡す（Apache共通設定）
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+# ─── インストーラー ───────────────────────────────────────
+# installed.lock が存在しなければ install.php へリダイレクト
+RewriteCond %{DOCUMENT_ROOT}/installed.lock !-f
+RewriteCond %{REQUEST_URI} !^/install\.php
+RewriteRule ^ /install.php [L,R=302]
+
+# インストール済みなら install.php へのアクセスをブロック
+RewriteCond %{DOCUMENT_ROOT}/installed.lock -f
+RewriteCond %{REQUEST_URI} ^/install\.php
+RewriteRule ^ / [L,R=302]
+
+# ─── PHPアプリの機密ディレクトリをWebから保護 ────────────
+RewriteRule ^(app|config|routes|vendor|storage|plugins)/ - [F,L]
+RewriteRule ^composer\. - [F,L]
+
+# custom/ は .php ファイルのみ禁止（style.css などは許可）
+RewriteRule ^custom/.*\.php$ - [F,L]
+
+# ─── API リクエスト → PHPへ ───────────────────────────────
+RewriteCond %{REQUEST_URI} ^/api/
+RewriteRule ^ public/index.php [QSA,L]
+
+# ─── 実在するファイル・ディレクトリはそのまま配信 ─────────
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# ─── 動的フロントルーティング → プレースホルダーシェルへ ───
+# /apps/{id}/records/{recordId} → /apps/_/records/_/index.html
+RewriteRule ^apps/[^/]+/records/[^/]+/?$ /apps/_/records/_/index.html [L]
+# /apps/{id}/builder → /apps/_/builder/index.html
+RewriteRule ^apps/[^/]+/builder/?$ /apps/_/builder/index.html [L]
+# /apps/{id}/settings → /apps/_/settings/index.html
+RewriteRule ^apps/[^/]+/settings/?$ /apps/_/settings/index.html [L]
+# /apps/{id} → /apps/_/index.html
+RewriteRule ^apps/[^/]+/?$ /apps/_/index.html [L]
+
+# ─── その他（/login, /profile 等）→ index.html ────────────
+RewriteRule ^ index.html [L]

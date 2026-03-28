@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -48,6 +49,7 @@ interface DynamicFormProps {
     columns?: number;
     hideSubmit?: boolean;
     submitLabel?: string;
+    extraFooter?: React.ReactNode;
 }
 
 export const DynamicForm = ({
@@ -58,6 +60,7 @@ export const DynamicForm = ({
     columns = 1,
     hideSubmit = false,
     submitLabel,
+    extraFooter,
 }: DynamicFormProps) => {
     // Dynamically build Zod schema
     const schemaShape: any = {};
@@ -332,6 +335,8 @@ export const DynamicForm = ({
                         </div>
                     ))}
                 </div>
+
+                {extraFooter && <div>{extraFooter}</div>}
 
                 {!hideSubmit && (
                     <div className="flex justify-end">

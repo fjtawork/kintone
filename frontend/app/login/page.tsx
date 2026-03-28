@@ -31,13 +31,9 @@ export default function LoginPage() {
         setLoading(true);
 
         try {
-            // OAuth2PasswordRequestForm expects application/x-www-form-urlencoded
-            const body = new URLSearchParams();
-            body.append('username', email.trim()); // FastAPI OAuth2 uses 'username' field
-            body.append('password', password);
-
-            const { data } = await api.post('/auth/login', body.toString(), {
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+            const { data } = await api.post('/auth/login', {
+                email: email.trim(),
+                password,
             });
 
             login(data.access_token);

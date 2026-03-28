@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { getCurrentUser } from '@/features/users/api';
 import { NotificationBell } from '@/features/notifications/components/NotificationBell';
+import { api } from '@/lib/axios';
 
 export const Navbar = () => {
     const { isAuthenticated, logout } = useAuth();
@@ -19,7 +20,17 @@ export const Navbar = () => {
         retry: false
     });
 
+    const { data: siteInfo } = useQuery({
+        queryKey: ['systemInfo'],
+        queryFn: async () => {
+            const { data } = await api.get('/system/info');
+            return data as { organization_name: string };
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
     const isAdmin = currentUser?.is_superuser;
+    const siteName = siteInfo?.organization_name ?? 'kintone Clone';
 
     // Don't show navbar on login/signup pages to avoid clutter
     if (['/login', '/signup'].includes(pathname)) {
@@ -31,7 +42,7 @@ export const Navbar = () => {
             <div className="flex h-16 items-center px-4 container mx-auto justify-between">
                 <div className="flex items-center space-x-4">
                     <Link href="/" className="font-bold text-xl">
-                        kintone Clone
+                        {siteName}
                     </Link>
                     {isAuthenticated && (
                         <Link href="/" className="text-sm font-medium transition-colors hover:text-primary">
@@ -45,6 +56,9 @@ export const Navbar = () => {
                             </Link>
                             <Link href="/admin/organization" className="text-sm font-medium transition-colors hover:text-primary">
                                 組織管理
+                            </Link>
+                            <Link href="/admin/settings" className="text-sm font-medium transition-colors hover:text-primary">
+                                システム設定
                             </Link>
                         </>
                     )}

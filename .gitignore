@@ -1,6 +1,7 @@
 # System files
 .DS_Store
 Thumbs.db
+RESUME.md
 
 # Node.js (Frontend)
 node_modules/
@@ -66,3 +67,5 @@ override.tf.json
 backend/uploads/
 php-app/vendor/
 php-app/out/
+.playwright-mcp/
+php-app/installed.lock

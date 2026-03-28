@@ -39,12 +39,9 @@ export default function SignupPage() {
             });
 
             // Auto login after signup
-            const body = new URLSearchParams();
-            body.append('username', email.trim());
-            body.append('password', password);
-
-            const { data } = await api.post('/auth/login', body.toString(), {
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+            const { data } = await api.post('/auth/login', {
+                email: email.trim(),
+                password,
             });
             login(data.access_token);
 

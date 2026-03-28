@@ -25,8 +25,8 @@ const formSchema = z.object({
     description: z.string().optional(),
     icon: z.string().optional(),
     theme: z.string().optional(),
-    record_chat_enabled: z.boolean().default(false),
-    record_chat_max_messages: z.coerce.number().int().min(1).max(1000).default(300),
+    record_chat_enabled: z.boolean(),
+    record_chat_max_messages: z.number().int().min(1).max(1000),
 });
 
 interface GeneralSettingsProps {
