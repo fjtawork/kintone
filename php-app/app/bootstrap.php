@@ -2,7 +2,23 @@
 
 declare(strict_types=1);
 
-require dirname(__DIR__) . '/vendor/autoload.php';
+/**
+ * PSR-4 オートローダー（Composer不要）。
+ * App\ 名前空間を app/ ディレクトリにマッピングする。
+ */
+spl_autoload_register(static function (string $class): void {
+    $prefix = 'App\\';
+    if (strncmp($class, $prefix, strlen($prefix)) !== 0) {
+        return;
+    }
+
+    $relativeClass = substr($class, strlen($prefix));
+    $file = __DIR__ . '/' . str_replace('\\', '/', $relativeClass) . '.php';
+
+    if (file_exists($file)) {
+        require $file;
+    }
+});
 
 // 未インストール時はAPIリクエストを拒否
 if (!file_exists(dirname(__DIR__) . '/installed.lock')) {

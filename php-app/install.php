@@ -70,12 +70,14 @@ function checkRequirements(): array {
         ];
     }
 
-    // Composer vendor
+    // custom/ ディレクトリ書き込み権限
+    $customDir = __DIR__ . '/custom';
+    $customWritable = is_writable($customDir) || (!file_exists($customDir) && is_writable(__DIR__));
     $checks[] = [
-        'name' => 'Composer依存パッケージ',
-        'required' => 'インストール済み',
-        'current' => file_exists(__DIR__ . '/vendor/autoload.php') ? 'インストール済み' : '未インストール',
-        'ok' => file_exists(__DIR__ . '/vendor/autoload.php'),
+        'name' => '書き込み権限: custom/',
+        'required' => '書き込み可',
+        'current' => $customWritable ? '書き込み可' : '書き込み不可',
+        'ok' => $customWritable,
     ];
 
     return $checks;
