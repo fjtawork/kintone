@@ -140,5 +140,7 @@ Python/FastAPI バックエンドに加え、共有ホスティング向けの P
 
 ## 8. インフラ前提
 
-- 本番想定: AWS（ECS + Aurora + ALB）または共有ホスティング（PHP版）
-- Terraform 雛形あり（`infrastructure/`）
+- 本番想定: WordPressが動く共有ホスティング（レンタルサーバー）
+- 要件: PHP 8.0以上、MySQL 5.7以上、Apache（mod_rewrite）
+- フロントエンドは静的HTMLとしてビルド（`next build` → `out/`）し、Apacheから配信
+- AWS等のクラウド環境も利用可能だが、共有ホスティングでの動作を第一に設計

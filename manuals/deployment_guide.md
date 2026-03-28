@@ -1,5 +1,41 @@
 # Deployment Guide for kintone Clone
 
+> **注意**: 本プロダクトは PHP + MySQL + Apache（共有ホスティング / レンタルサーバー）での運用を第一に設計しています。WordPressが動くサーバー環境であれば動作します。以下のAWSデプロイ手順は旧Python/FastAPIバックエンド向けの参考資料です。
+
+## 推奨デプロイ方法（PHP版 / 共有ホスティング）
+
+### サーバー要件
+
+- PHP 8.0以上（推奨 8.3）
+- MySQL 5.7以上（または MariaDB 10.3以上）
+- Apache + mod_rewrite（.htaccess使用可能）
+
+### 手順
+
+1. `php-app/` 配下のファイルをサーバーのドキュメントルートにアップロード
+2. `frontend/` で `npm run build` を実行し、生成された `out/` の中身をサーバーに配置
+3. ブラウザから `http://your-domain/install.php` にアクセスしてGUIインストーラーを実行
+   - DB接続情報の入力
+   - 管理者アカウントの作成
+4. インストール完了後、`install.php` は自動的にアクセス不可になる
+
+### ディレクトリ構成（サーバー上）
+
+```
+/public_html/          (ドキュメントルート)
+  .htaccess            API + SPAルーティング
+  index.php            PHPエントリポイント
+  install.php          GUIインストーラー
+  app/                 PHPアプリケーション
+  custom/              カスタマイズファイル（functions.php, global.js, apps/）
+  storage/             ログ・アップロード
+  *.html, _next/       Next.js静的ビルド出力
+```
+
+---
+
+## 参考: AWSデプロイ（旧Python/FastAPIバックエンド向け）
+
 This guide provides instructions on how to deploy the kintone Clone application to AWS using Terraform.
 
 ## Prerequisites
