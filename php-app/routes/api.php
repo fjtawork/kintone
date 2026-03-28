@@ -85,3 +85,16 @@ $router->get('/api/v1/admin/ip-allowlist',            $auth->protect(fn($req, $u
 $router->post('/api/v1/admin/ip-allowlist',           $auth->protect(fn($req, $user) => $adminCtrl->createIpEntry($req, $user)));
 $router->patch('/api/v1/admin/ip-allowlist/{ip_id}',  $auth->protect(fn($req, $user) => $adminCtrl->updateIpEntry($req, $user)));
 $router->delete('/api/v1/admin/ip-allowlist/{ip_id}', $auth->protect(fn($req, $user) => $adminCtrl->deleteIpEntry($req, $user)));
+
+// Custom Code
+$router->get('/api/v1/admin/custom-php',  $auth->protect(fn($req, $user) => $customCodeCtrl->getPhp($req, $user)));
+$router->put('/api/v1/admin/custom-php',  $auth->protect(fn($req, $user) => $customCodeCtrl->updatePhp($req, $user)));
+
+$router->get('/api/v1/admin/custom-js/global',  $auth->protect(fn($req, $user) => $customCodeCtrl->getGlobalJs($req, $user)));
+$router->put('/api/v1/admin/custom-js/global',  $auth->protect(fn($req, $user) => $customCodeCtrl->updateGlobalJs($req, $user)));
+$router->get('/api/v1/apps/{app_id}/custom-js',  $auth->protect(fn($req, $user) => $customCodeCtrl->getAppJs($req, $user)));
+$router->put('/api/v1/apps/{app_id}/custom-js',  $auth->protect(fn($req, $user) => $customCodeCtrl->updateAppJs($req, $user)));
+
+// JS配信（認証不要）
+$router->get('/api/v1/custom-js/global.js',         static fn($req) => $customCodeCtrl->serveGlobalJs($req));
+$router->get('/api/v1/custom-js/apps/{app_id}.js',  static fn($req) => $customCodeCtrl->serveAppJs($req));
