@@ -69,3 +69,4 @@ php-app/vendor/
 php-app/out/
 .playwright-mcp/
 php-app/installed.lock
+frontend/test-results/

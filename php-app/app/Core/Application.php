@@ -13,6 +13,7 @@ use App\Http\Controllers\HealthController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PinnedAppController;
 use App\Http\Controllers\RecordController;
+use App\Http\Controllers\CustomCodeController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\AuthMiddleware;
 use App\Infrastructure\Database;
@@ -38,6 +39,7 @@ class Application
     private AdminSettingsController $adminCtrl;
     private NotificationController $notifCtrl;
     private UserController         $userCtrl;
+    private CustomCodeController   $customCodeCtrl;
 
     /**
      * @param array<string, mixed> $config
@@ -69,6 +71,7 @@ class Application
         $this->adminCtrl  = new AdminSettingsController($this->database);
         $this->notifCtrl  = new NotificationController($this->database);
         $this->userCtrl   = new UserController($this->database);
+        $this->customCodeCtrl = new CustomCodeController();
 
         // ── カスタムfunctions.phpの読み込み ──────────────────────────────────
         $customFunctions = dirname(__DIR__, 2) . '/custom/functions.php';
@@ -96,6 +99,7 @@ class Application
         $adminCtrl  = $this->adminCtrl;
         $notifCtrl  = $this->notifCtrl;
         $userCtrl   = $this->userCtrl;
+        $customCodeCtrl = $this->customCodeCtrl;
 
         $routesFile = dirname(__DIR__, 2) . '/routes/api.php';
         if (file_exists($routesFile)) {
