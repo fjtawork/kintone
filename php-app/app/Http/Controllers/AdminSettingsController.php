@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Core\Migrator;
 use App\Core\Request;
 use App\Infrastructure\Database;
 use PDO;
@@ -295,5 +296,49 @@ class AdminSettingsController
         $stmt->execute([$ipId]);
 
         return [200, ['message' => 'IP entry deleted successfully.']];
+    }
+
+    // ── マイグレーション ─────────────────────────────────────────────────
+
+    /**
+     * マイグレーションステータスを返す。
+     */
+    public function getMigrationStatus(Request $req, array $user): array
+    {
+        if ($error = $this->requireSuperuser($user)) {
+            return $error;
+        }
+
+        $migrator = new Migrator($this->db->pdo());
+        return [200, $migrator->getStatus()];
+    }
+
+    /**
+     * 未適用マイグレーションを実行する。
+     */
+    public function runMigrations(Request $req, array $user): array
+    {
+        if ($error = $this->requireSuperuser($user)) {
+            return $error;
+        }
+
+        $migrator = new Migrator($this->db->pdo());
+        $result = $migrator->migrate();
+
+        if (!empty($result['errors'])) {
+            return [500, [
+                'code'    => 'MIGRATION_ERROR',
+                'message' => 'マイグレーションでエラーが発生しました。',
+                'applied' => $result['applied'],
+                'errors'  => $result['errors'],
+            ]];
+        }
+
+        return [200, [
+            'message' => empty($result['applied'])
+                ? '適用するマイグレーションはありません。'
+                : count($result['applied']) . ' 件のマイグレーションを適用しました。',
+            'applied' => $result['applied'],
+        ]];
     }
 }

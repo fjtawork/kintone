@@ -6,7 +6,8 @@ import { getCurrentUser } from '@/features/users/api';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { GeneralSettingsPanel } from '@/features/admin/components/GeneralSettingsPanel';
 import { IpAllowlistPanel } from '@/features/admin/components/IpAllowlistPanel';
-import { Settings, Shield } from 'lucide-react';
+import { MigrationPanel } from '@/features/admin/components/MigrationPanel';
+import { Settings, Shield, Database } from 'lucide-react';
 
 export default function SettingsPageClient() {
     const { isAuthenticated } = useAuth();
@@ -40,6 +41,10 @@ export default function SettingsPageClient() {
                         <Shield className="h-4 w-4" />
                         IP制限
                     </TabsTrigger>
+                    <TabsTrigger value="migration" className="flex items-center gap-2">
+                        <Database className="h-4 w-4" />
+                        データベース
+                    </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="general">
@@ -51,6 +56,12 @@ export default function SettingsPageClient() {
                 <TabsContent value="ip">
                     <div className="bg-white dark:bg-zinc-950 border rounded-lg p-6 shadow-sm">
                         <IpAllowlistPanel />
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="migration">
+                    <div className="bg-white dark:bg-zinc-950 border rounded-lg p-6 shadow-sm">
+                        <MigrationPanel />
                     </div>
                 </TabsContent>
             </Tabs>

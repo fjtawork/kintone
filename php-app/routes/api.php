@@ -86,6 +86,10 @@ $router->post('/api/v1/admin/ip-allowlist',           $auth->protect(fn($req, $u
 $router->patch('/api/v1/admin/ip-allowlist/{ip_id}',  $auth->protect(fn($req, $user) => $adminCtrl->updateIpEntry($req, $user)));
 $router->delete('/api/v1/admin/ip-allowlist/{ip_id}', $auth->protect(fn($req, $user) => $adminCtrl->deleteIpEntry($req, $user)));
 
+// Migrations
+$router->get('/api/v1/admin/migrations',   $auth->protect(fn($req, $user) => $adminCtrl->getMigrationStatus($req, $user)));
+$router->post('/api/v1/admin/migrations',  $auth->protect(fn($req, $user) => $adminCtrl->runMigrations($req, $user)));
+
 // Custom Code
 $router->get('/api/v1/admin/custom-php',  $auth->protect(fn($req, $user) => $customCodeCtrl->getPhp($req, $user)));
 $router->put('/api/v1/admin/custom-php',  $auth->protect(fn($req, $user) => $customCodeCtrl->updatePhp($req, $user)));

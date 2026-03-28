@@ -284,6 +284,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             exit;
         }
 
+        // Step 2.5: Record all migrations as applied (schema.sql covers them)
+        require_once __DIR__ . '/app/Core/Migrator.php';
+        $migrator = new \App\Core\Migrator($pdo);
+        $migrator->markAllAsApplied();
+
         // Step 3: Create admin account
         $admin = createAdmin($pdo, $adminEmail, $adminPassword, $adminName);
         if (!$admin['ok']) {
