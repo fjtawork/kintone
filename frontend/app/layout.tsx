@@ -6,6 +6,7 @@ import { AuthProvider } from '@/components/providers/AuthProvider';
 import { GlobalStyles } from '@/components/providers/GlobalStyles';
 import { Navbar } from '@/components/layout/Navbar';
 import { Toaster } from '@/components/ui/sonner';
+import { CustomScriptLoader } from '@/components/providers/CustomScriptLoader';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -30,6 +31,7 @@ export default function RootLayout({
               {children}
             </main>
             <Toaster />
+            <CustomScriptLoader />
           </QueryProvider>
         </AuthProvider>
       </body>

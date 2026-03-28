@@ -60,6 +60,9 @@ export const Navbar = () => {
                             <Link href="/admin/settings" className="text-sm font-medium transition-colors hover:text-primary">
                                 システム設定
                             </Link>
+                            <Link href="/admin/customize/php" className="text-sm font-medium transition-colors hover:text-primary">
+                                カスタマイズ
+                            </Link>
                         </>
                     )}
                 </div>

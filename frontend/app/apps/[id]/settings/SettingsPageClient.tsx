@@ -12,6 +12,7 @@ import { ProcessManagementSettings } from '@/features/apps/components/ProcessMan
 import { PermissionSettings } from '@/features/apps/components/PermissionSettings';
 import { ListViewSettings } from '@/features/apps/components/ListViewSettings';
 import { GeneralSettings } from '@/features/apps/components/GeneralSettings';
+import { AppJsEditor } from '@/features/customize/components/AppJsEditor';
 
 export default function SettingsPageClient() {
     const appId = useAppId();
@@ -80,6 +81,8 @@ export default function SettingsPageClient() {
                             <Button variant="outline">フォームビルダーを開く</Button>
                         </Link>
                     </div>
+
+                    <AppJsEditor appId={appId} />
                 </div>
             ) : (
                 <div className="p-4 border rounded-md bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200">
