@@ -3,9 +3,12 @@
 import { useAppId } from '@/lib/useRouteParams';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/axios';
+import { useAuth } from '@/components/providers/AuthProvider';
+import { getCurrentUser } from '@/features/users/api';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Settings } from 'lucide-react';
+import { ArrowLeft, Settings, Download } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 import { RecordList } from '@/features/records/components/RecordList';
 import { useState } from 'react';
@@ -16,6 +19,15 @@ import { Field } from '@/features/app-builder/types';
 export default function AppPageClient() {
     const appId = useAppId();
     const [filters, setFilters] = useState({});
+    const [isExporting, setIsExporting] = useState(false);
+    const { isAuthenticated } = useAuth();
+
+    const { data: currentUser } = useQuery({
+        queryKey: ['currentUser'],
+        queryFn: getCurrentUser,
+        enabled: isAuthenticated,
+        retry: false,
+    });
 
     const { data: app, isLoading: isAppLoading } = useQuery({
         queryKey: ['app', appId],
@@ -61,6 +73,31 @@ export default function AppPageClient() {
         },
     });
 
+    const handleExportCsv = async () => {
+        setIsExporting(true);
+        try {
+            const response = await api.get(`/apps/${appId}/export/csv`, {
+                responseType: 'blob',
+            });
+            const blob = new Blob([response.data], { type: 'text/csv; charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const disposition = response.headers['content-disposition'];
+            const match = disposition?.match(/filename="?([^"]+)"?/);
+            a.download = match?.[1] || `${app?.name || 'export'}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            toast.success('CSVエクスポートが完了しました');
+        } catch {
+            toast.error('CSVエクスポートに失敗しました');
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
     if (isAppLoading || isFieldsLoading) return <div>アプリを読み込み中...</div>;
 
     return (
@@ -80,6 +117,16 @@ export default function AppPageClient() {
                 </div>
                 <div className="flex gap-2">
                     <RecordSearch fields={fields || []} onSearch={setFilters} />
+                    {currentUser?.is_superuser && (
+                        <Button
+                            variant="outline"
+                            onClick={handleExportCsv}
+                            disabled={isExporting}
+                        >
+                            <Download className="mr-2 h-4 w-4" />
+                            {isExporting ? 'エクスポート中...' : 'CSV出力'}
+                        </Button>
+                    )}
                     <Link href={`/apps/${appId}/settings`}>
                         <Button variant="outline">
                             <Settings className="mr-2 h-4 w-4" /> アプリ設定

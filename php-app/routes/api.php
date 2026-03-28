@@ -99,6 +99,9 @@ $router->put('/api/v1/admin/custom-js/global',  $auth->protect(fn($req, $user) =
 $router->get('/api/v1/apps/{app_id}/custom-js',  $auth->protect(fn($req, $user) => $customCodeCtrl->getAppJs($req, $user)));
 $router->put('/api/v1/apps/{app_id}/custom-js',  $auth->protect(fn($req, $user) => $customCodeCtrl->updateAppJs($req, $user)));
 
+// Export（superuser only）
+$router->get('/api/v1/apps/{app_id}/export/csv', $auth->protect(fn($req, $user) => $exportCtrl->exportCsv($req, $user)));
+
 // JS配信（認証不要）
 $router->get('/api/v1/custom-js/global.js',         static fn($req) => $customCodeCtrl->serveGlobalJs($req));
 $router->get('/api/v1/custom-js/apps/{app_id}.js',  static fn($req) => $customCodeCtrl->serveAppJs($req));
