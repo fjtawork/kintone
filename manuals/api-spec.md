@@ -812,7 +812,125 @@ IPエントリを削除する。
 
 ---
 
-## 10. Pinned Apps
+## 10. Custom Code
+
+> **注意**: 読み書きエンドポイントは superuser 専用。配信エンドポイントは認証不要。
+
+### GET /api/v1/admin/custom-php
+
+**認証**: 必須（superuser のみ）
+
+`custom/functions.php` の内容を返す。
+
+**レスポンス 200**:
+```json
+{ "code": "<?php\ndeclare(strict_types=1);\n// ..." }
+```
+
+---
+
+### PUT /api/v1/admin/custom-php
+
+**認証**: 必須（superuser のみ）
+
+`custom/functions.php` を上書きする。
+
+**リクエスト body**:
+
+| フィールド | 型 | 必須 | 説明 |
+|-----------|---|------|------|
+| code | string | ✓ | PHPコード全体 |
+
+**レスポンス 200**:
+```json
+{ "success": true }
+```
+
+**エラー**: 400（code が文字列でない）, 403（superuser 以外）
+
+---
+
+### GET /api/v1/admin/custom-js/global
+
+**認証**: 必須（superuser のみ）
+
+`custom/global.js` の内容を返す。
+
+**レスポンス 200**:
+```json
+{ "code": "// global JS code..." }
+```
+
+---
+
+### PUT /api/v1/admin/custom-js/global
+
+**認証**: 必須（superuser のみ）
+
+`custom/global.js` を上書きする。
+
+**リクエスト body**:
+
+| フィールド | 型 | 必須 | 説明 |
+|-----------|---|------|------|
+| code | string | ✓ | JavaScriptコード全体 |
+
+**レスポンス 200**:
+```json
+{ "success": true }
+```
+
+---
+
+### GET /api/v1/apps/{app_id}/custom-js
+
+**認証**: 必須（superuser のみ）
+
+アプリ別 `custom/apps/{app_id}.js` の内容を返す。
+
+**レスポンス 200**:
+```json
+{ "code": "// app-specific JS..." }
+```
+
+---
+
+### PUT /api/v1/apps/{app_id}/custom-js
+
+**認証**: 必須（superuser のみ）
+
+アプリ別JSファイルを上書きする。
+
+**リクエスト body**:
+
+| フィールド | 型 | 必須 | 説明 |
+|-----------|---|------|------|
+| code | string | ✓ | JavaScriptコード全体 |
+
+**レスポンス 200**:
+```json
+{ "success": true }
+```
+
+---
+
+### GET /api/v1/custom-js/global.js
+
+**認証**: 不要
+
+グローバルJSファイルを `application/javascript` として配信する。フロントエンドが `<script>` タグで読み込む用途。
+
+---
+
+### GET /api/v1/custom-js/apps/{app_id}.js
+
+**認証**: 不要
+
+アプリ別JSファイルを `application/javascript` として配信する。該当アプリが存在しない場合は空のJSを返す。
+
+---
+
+## 12. Pinned Apps
 
 ### GET /api/v1/users/me/pinned-apps
 
@@ -830,7 +948,7 @@ IPエントリを削除する。
 
 ---
 
-## 11. Organization (Stub)
+## 13. Organization (Stub)
 
 現在はテーブル未実装のため空配列を返す。
 

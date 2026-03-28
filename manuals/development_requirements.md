@@ -117,7 +117,28 @@ cd backend
 }
 ```
 
-## 7. インフラ前提
+## 7. PHP バックエンド（共有ホスティング向け）
 
-- 本番想定: AWS（ECS + Aurora + ALB）
+Python/FastAPI バックエンドに加え、共有ホスティング向けの PHP バックエンドが `php-app/` にある。
+
+- PHP 8.3 + MySQL 8.0、フレームワーク不使用（独自Router）
+- JWT認証、WordPress式HookManager（action/filter）
+- Docker開発環境: `cd php-app && docker compose up -d`（ポート8081）
+- GUIインストーラー: `http://localhost:8081/install.php`
+
+### カスタマイズ機能
+
+管理画面（superuser のみ）から以下のコードをMonaco Editorで編集可能:
+
+| 種類 | 保存先 | 用途 |
+|------|--------|------|
+| PHP（サーバーサイド） | `custom/functions.php` | HookManagerのフック処理（Webhook送信、メール通知、監査ログ等） |
+| グローバルJS | `custom/global.js` | 全ページで実行されるフロントエンドカスタマイズ |
+| アプリ別JS | `custom/apps/{app_id}.js` | 特定アプリのページでのみ実行されるJS |
+
+利用可能なPHPフック: `record.created`, `record.updated`, `record.deleted`, `record.status.changed`, `record.comment.created`, `app.created`, `app.updated`, `app.deleted`, `auth.login.success`, `auth.login.failed`, `auth.signup`
+
+## 8. インフラ前提
+
+- 本番想定: AWS（ECS + Aurora + ALB）または共有ホスティング（PHP版）
 - Terraform 雛形あり（`infrastructure/`）
